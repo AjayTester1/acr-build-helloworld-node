@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: l5aks.azurecr.io
+        username: ${{ secrets.acr_l5aks_username }}
+        password: ${{ secrets.acr_l5aks_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/." -f  "Dockerfile" -t l5aks.azurecr.io/akskodeyb3bd:${{ github.sha }}
+        docker push l5aks.azurecr.io/akskodeyb3bd:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_akskodey_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep akskodeyb3bd | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace akskodeyb3bd`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: akskodeyb3bd
+        container-registry-url: l5aks.azurecr.io
+        container-registry-username: ${{ secrets.acr_l5aks_username }}
+        container-registry-password: ${{ secrets.acr_l5aks_password }}
+        secret-name: akskodeydockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: akskodeyb3bd
+        manifests: |
+          ./manifests/deployment-b3bd.yml
+          ./manifests/service-b3bd.yml
+        images: |
+          l5aks.azurecr.io/akskodeyb3bd:${{ github.sha }}
+        imagepullsecrets: |
+          akskodeydockerauth
