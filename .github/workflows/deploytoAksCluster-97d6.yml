@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: aksrivacr1.azurecr.io
+        username: ${{ secrets.acr_aksrivacr1_username }}
+        password: ${{ secrets.acr_aksrivacr1_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/." -f  "Dockerfile" -t aksrivacr1.azurecr.io/aks1kodey97d6:${{ github.sha }}
+        docker push aksrivacr1.azurecr.io/aks1kodey97d6:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_aks1kodey_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep aks1kodey97d6 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace aks1kodey97d6`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: aks1kodey97d6
+        container-registry-url: aksrivacr1.azurecr.io
+        container-registry-username: ${{ secrets.acr_aksrivacr1_username }}
+        container-registry-password: ${{ secrets.acr_aksrivacr1_password }}
+        secret-name: aks1kodeydockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: aks1kodey97d6
+        manifests: |
+          ./manifests/deployment-97d6.yml
+          ./manifests/service-97d6.yml
+        images: |
+          aksrivacr1.azurecr.io/aks1kodey97d6:${{ github.sha }}
+        imagepullsecrets: |
+          aks1kodeydockerauth
