@@ -1,0 +1,51 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: l5aks1511.azurecr.io
+        username: ${{ secrets.acr_l5aks1511_username }}
+        password: ${{ secrets.acr_l5aks1511_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/." -f  "Dockerfile" -t l5aks1511.azurecr.io/aks1kodeyc551:${{ github.sha }}
+        docker push l5aks1511.azurecr.io/aks1kodeyc551:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_aks1kodey_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep aks1kodeyc551 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace aks1kodeyc551`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: aks1kodeyc551
+        container-registry-url: l5aks1511.azurecr.io
+        container-registry-username: ${{ secrets.acr_l5aks1511_username }}
+        container-registry-password: ${{ secrets.acr_l5aks1511_password }}
+        secret-name: aks1kodeydockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: aks1kodeyc551
+        manifests: |
+          ./manifests/deployment-c551.yml
+          ./manifests/service-c551.yml
+          ./manifests/ingress-c551.yml
+        images: |
+          l5aks1511.azurecr.io/aks1kodeyc551:${{ github.sha }}
+        imagepullsecrets: |
+          aks1kodeydockerauth
