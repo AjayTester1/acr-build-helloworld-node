@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: "akskodey-ea10"
+    labels:
+        app: "akskodey-ea10"
+    annotations:
+        kubernetes.io/ingress.class: addon-http-application-routing
+spec:
+    rules:
+        - host: akskodeyea10-akskodey-ea10.cfa4f987fa1f4ceda371.westcentralus.aksapp.io
+          http:
+            paths:
+            - path: /
+              backend:
+                serviceName: "akskodey-ea10"
+                servicePort: 80
