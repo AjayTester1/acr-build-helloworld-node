@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "akskodey-166b"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "akskodey-166b"
+  template:
+    metadata:
+      labels:
+        app: "akskodey-166b"
+    spec:
+      containers:
+        - name: "akskodey-166b"
+          image: "l5aks1511.azurecr.io/akskodey166b"
+          ports:
+          - containerPort: 80
